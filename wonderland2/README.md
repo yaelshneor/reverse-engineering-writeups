@@ -8,31 +8,23 @@
 
 ## 📌 Challenge Overview
 
-This challenge is a relatively straightforward reverse engineering binary once the main transformation applied to the input is identified.
+This challenge is a reverse engineering binary that validates user input by applying an in-place transformation before comparing it to a constant string.
 
-The binary is compiled from C and performs input validation by modifying the user’s input in-place before comparing it to a constant string.
+The goal is to understand the transformation logic and recover the correct input.
 
 ---
 
 ## ▶️ Program Behavior
 
-When running the binary, we see:
-
+The program prompts:
 
 Enter password:
 
-
-If the input is incorrect:
-
-
+Wrong input:
 Wrong password!
 
-
-If the input is correct:
-
-
+Correct input:
 Correct! you may enter..
-
 
 This indicates that the input is transformed before comparison.
 
@@ -40,67 +32,78 @@ This indicates that the input is transformed before comparison.
 
 ## 🔍 Static Analysis
 
-Using a disassembler (IDA / Ghidra / Binary Ninja), we analyze `main`.
+The binary was analyzed using IDA / Ghidra / Binary Ninja.
 
-We first observe stack setup:
-
-```asm
+Stack setup:
 push ebp
 mov ebp, esp
 sub esp, 40Ch
 
 Buffer initialization:
-
 push 400h
 push 0
 lea ecx, [ebp+Buffer]
 call memset
 
-Input is read using:
-
+Input reading:
 call __acrt_iob_func
 call fgets
 
-And length is computed via:
-
+Length calculation:
 call strlen
 mov [ebp+len], eax
-🔁 Core Transformation Logic
 
-The binary processes input in 4-byte chunks (DWORDs):
+---
+
+## 🔁 Core Transformation Logic
+
+The input is processed in 4-byte (DWORD) chunks:
 
 mov eax, [ebp+i]
 mov ecx, dword ptr [ebp+eax+Buffer]
-xor ecx, 41524241h
+xor ecx, 0x41524241
 mov dword ptr [ebp+eax+Buffer], ecx
-🧠 Pseudocode
+
+---
+
+## 🧠 Pseudocode
+
 for (int i = 0; i + 3 < len; i += 4) {
     *(uint32_t*)(Buffer + i) ^= 0x41524241;
 }
-📌 Key Observations
-Input is processed in DWORD (4-byte) blocks
-Transformation is XOR-based
-XOR is reversible
-Architecture is x86 → little-endian format
-🔍 Final Comparison
 
-After transformation, the buffer is compared against:
+---
 
-"into the rabbit hole"
+## 📌 Key Observations
 
-Using:
+- Input is processed in 4-byte blocks (DWORD)
+- Transformation is XOR-based
+- XOR is reversible
+- Architecture is x86 (little-endian)
 
-strncmp(Buffer, target, len)
-🔁 Reversing Strategy
+---
 
-Since XOR is reversible:
+## 🔍 Final Comparison
+
+After transformation, the buffer is compared to:
+
+into the rabbit hole
+
+strncmp(Buffer, "into the rabbit hole", len);
+
+---
+
+## 🔁 Reversing Strategy
 
 A XOR K = B  
-A = B XOR K
+A = B XOR K  
 
-We apply the inverse transformation to the known target string.
+We apply the same XOR operation on the target string to recover the original input.
 
-🧪 Exploit Script (Python)
+---
+
+## 🧪 Exploit Script (Python)
+
 s = "into the rabbit hole"
 key = 0x41524241
 
@@ -113,10 +116,17 @@ for i in range(0, len(s), 4):
     res.extend(val.to_bytes(4, "little"))
 
 print(res)
-🎯 Solution
+
+---
+
+## 🎯 Solution
+
 (,&.a6:$a03##+&a)->$
-🏁 Conclusion
 
-The key insight of this challenge is recognizing that the binary operates on 32-bit DWORD chunks rather than individual characters.
+---
 
-Once identified, the entire challenge reduces to a simple reversible XOR operation over block-aligned memory.
+## 🏁 Conclusion
+
+The key insight is that the binary operates on 32-bit DWORD blocks instead of individual characters.
+
+Once this is identified, the challenge reduces to a simple reversible XOR operation at block level.
