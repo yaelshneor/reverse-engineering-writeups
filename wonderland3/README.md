@@ -1,6 +1,6 @@
 # Wonderland.exe – Write Up
 
-# Level 3 – Static and Dynamic Analysis
+# Level 3 – Static Analysis
 
 ## Objective
 
