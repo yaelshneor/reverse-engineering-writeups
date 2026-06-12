@@ -57,9 +57,7 @@ Good luck!!
 This means the target string exists only temporarily on the stack during execution.
 
 <img width="385" height="157" alt="image" src="https://github.com/user-attachments/assets/3d523b4c-87fb-4dfa-ac38-0bcc84139042" />
-
-
-
+<br><br>
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
 
 
@@ -135,15 +133,11 @@ This means that even if the user discovers the address of the stack string, usin
 The program explicitly blocks this solution.
 
 <img width="1292" height="402" alt="image" src="https://github.com/user-attachments/assets/8b6ce498-0abb-4728-94ed-bb08386771a5" />
-
-
-
+<br><br>
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
-
-
-
+<br><br>
 <img width="443" height="81" alt="image" src="https://github.com/user-attachments/assets/d65d8af3-511c-4757-a77e-e8ba41c2115b" />
-
+<br><br>
 
 # Step 6 – Searching for an Alternative String
 
