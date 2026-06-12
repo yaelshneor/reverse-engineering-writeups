@@ -58,6 +58,8 @@ This means the target string exists only temporarily on the stack during executi
 
 <img width="385" height="157" alt="image" src="https://github.com/user-attachments/assets/3d523b4c-87fb-4dfa-ac38-0bcc84139042" />
 
+
+
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
 
 
@@ -134,7 +136,11 @@ The program explicitly blocks this solution.
 
 <img width="1292" height="402" alt="image" src="https://github.com/user-attachments/assets/8b6ce498-0abb-4728-94ed-bb08386771a5" />
 
+
+
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
+
+
 
 <img width="443" height="81" alt="image" src="https://github.com/user-attachments/assets/d65d8af3-511c-4757-a77e-e8ba41c2115b" />
 
@@ -238,12 +244,6 @@ This value represents the address:
 
 ```text
 0x0040473E
-```
-
-which points to:
-
-```text
-Good luck!! (and good job!)
 ```
 
 The comparison succeeds and the anti-cheat check is bypassed because this address is different from the stack buffer address.
