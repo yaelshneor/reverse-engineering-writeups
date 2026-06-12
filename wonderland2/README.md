@@ -127,7 +127,7 @@ call    strncmp
 
 So the **transformed** input must be equal to `"into the rabbit hole"`.
 
-<img width="1034" height="299" alt="image" src="https://github.com/user-attachments/assets/7985a2a4-b4cb-4f70-b11d-4a857a44f07e" />
+<img width="570" height="325" alt="image" src="https://github.com/user-attachments/assets/9a901e33-0f2f-45c6-a44f-931aa449aa8c" />
 
 
 ---
@@ -185,10 +185,6 @@ The required input for Level 2 is:
 ```
 (,&.a6:$a03##+&a)->$
 ```
-![Uploading image.png…]()
+<img width="767" height="353" alt="image" src="https://github.com/user-attachments/assets/0ddd487e-7f75-4f0f-beb5-a87fabd790f8" />
 
-Entering this string causes the program's XOR transformation to turn it into `"into the rabbit hole"`, which passes the `strncmp` check and prints `"Correct! You may enter."`
 
-Once understood, the problem reduces to a simple reversible XOR transformation.
-
-Once understood, the problem reduces to a simple reversible XOR transformation.
