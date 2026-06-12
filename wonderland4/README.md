@@ -54,15 +54,12 @@ The assembly instructions write the following text into a local buffer:
 Good luck!!
 ```
 
-The string is stored inside the local variable:
-
-```asm
-Str = byte ptr -10h
-```
-
 This means the target string exists only temporarily on the stack during execution.
 
 <img width="385" height="157" alt="image" src="https://github.com/user-attachments/assets/3d523b4c-87fb-4dfa-ac38-0bcc84139042" />
+
+<img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
+
 
 
 # Step 4 – Discovering the Pointer Trick
@@ -111,7 +108,6 @@ Good luck!!
 ```
 
 <img width="379" height="128" alt="image" src="https://github.com/user-attachments/assets/c4f088fd-ba0e-4b28-bf53-af132202eeb8" />
-<img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
 
 
 # Step 5 – Identifying the Anti-Cheat Mechanism
