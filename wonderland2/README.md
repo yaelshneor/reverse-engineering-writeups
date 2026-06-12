@@ -40,7 +40,7 @@ add     ecx, 4
 mov     [ebp+var_4], ecx
 ```
 
-`var_4` starts at 0 and is **incremented by 4 on each iteration**, and the loop continues as long as `var_4 + 3 < length`. This is the structure of a loop that advances 4 bytes (one DWORD) at a time.
+`var_4` starts at 0 and is **incremented by 4 on each iteration**. This is the structure of a loop that advances 4 bytes (one DWORD) at a time.
 
 Based on this, I renamed `var_4` to **`i`**, since it serves as the byte offset into `Buffer`.
 
@@ -85,6 +85,7 @@ lea     edx, [ebp+Buffer]
 push    edx             ; Buffer
 call    ds:fgets
 ```
+After zeroing out the buffer with memset — which can be used for both input and output buffers, and here we can tell it's input because 0 is pushed onto the stack — the program calls fgets to read the user's input into it.
 
 <img width="331" height="496" alt="image" src="https://github.com/user-attachments/assets/fba47615-6340-47ca-b1d9-20a62bd120a0" />
 
@@ -101,7 +102,8 @@ xor     ecx, 41524241h
 mov     dword ptr [ebp+eax+Buffer], ecx
 ```
 
-On each iteration, the program takes 4 bytes from the input buffer and XORs them with the value `0x41524241`. Since the CPU is x86, values are stored in **little-endian** format — which matters when reconstructing the correct input bytes.
+On each iteration, the program takes 4 bytes from the input buffer and XORs them with the value `0x41524241`.
+values are stored in **little-endian** format.
 
 <img width="321" height="153" alt="image" src="https://github.com/user-attachments/assets/7bb94ca2-75ba-49ec-9a37-f8a000b95bf0" />
 
@@ -171,6 +173,8 @@ print(res.decode('latin1'))
 ```
 
 Running this script produces the exact byte sequence that, once read into `Buffer` and XORed by the program with `0x41524241`, becomes `"into the rabbit hole"`.
+
+<img width="767" height="353" alt="image" src="https://github.com/user-attachments/assets/5a978e3c-d6bf-4cdb-9736-023aa486ce63" />
 
 ---
 
