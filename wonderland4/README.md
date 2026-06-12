@@ -7,10 +7,22 @@
 The objective of this level was to bypass the validation mechanism without modifying the executable file (No Patching). The solution required understanding how the program validates the user input and identifying the correct memory address expected by the comparison routine.
 
 ---
+# Step 1 – Function Identification and Renaming
 
-# Step 1 – Understanding the User Input
+In the initial static analysis, I identify function calls and look for familiar patterns in the code such as input and output operations. When I recognize standard behavior, I rename the functions to make the program flow clearer.
 
-Inside `sub_401570` I examined how the program receives the user's input.
+```asm
+.text:00401576 push    offset aWaitIHaveSomet          ; "Wait... I have something on the tip of "...
+.text:0040157B call    sub_401DC0
+.text:00401580 add     esp, 4
+```
+
+<img width="662" height="278" alt="image" src="https://github.com/user-attachments/assets/1d9fccef-605d-43dc-ac6e-d67036947829" />
+
+
+# Step 2 – Understanding the User Input
+
+ I examined how the program receives the user's input.
 
 The following code is executed:
 
@@ -32,7 +44,7 @@ From this point I concluded that the program expects a numeric value from the us
 <img width="305" height="146" alt="image" src="https://github.com/user-attachments/assets/79bbebe9-bb91-4445-9651-b928e4a3925f" />
 
 
-# Step 2 – Reconstructing the Target String
+# Step 3 – Reconstructing the Target String
 
 After reading the input, the program builds a string manually on the stack.
 
@@ -53,7 +65,7 @@ This means the target string exists only temporarily on the stack during executi
 <img width="385" height="157" alt="image" src="https://github.com/user-attachments/assets/3d523b4c-87fb-4dfa-ac38-0bcc84139042" />
 
 
-# Step 3 – Discovering the Pointer Trick
+# Step 4 – Discovering the Pointer Trick
 
 Near the end of the function, the program calls:
 
@@ -102,7 +114,7 @@ Good luck!!
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
 
 
-# Step 4 – Identifying the Anti-Cheat Mechanism
+# Step 5 – Identifying the Anti-Cheat Mechanism
 
 Immediately after the comparison, the program performs another check:
 
@@ -125,11 +137,13 @@ This means that even if the user discovers the address of the stack string, usin
 The program explicitly blocks this solution.
 
 <img width="1292" height="402" alt="image" src="https://github.com/user-attachments/assets/8b6ce498-0abb-4728-94ed-bb08386771a5" />
+
 <img width="677" height="278" alt="image" src="https://github.com/user-attachments/assets/33c57e9e-ff22-4e73-8317-07da095c43b5" />
+
 <img width="443" height="81" alt="image" src="https://github.com/user-attachments/assets/d65d8af3-511c-4757-a77e-e8ba41c2115b" />
 
 
-# Step 5 – Searching for an Alternative String
+# Step 6 – Searching for an Alternative String
 
 Since the stack address cannot be used, I searched the program's data sections for another string that already contains the required text.
 
@@ -150,7 +164,7 @@ as part of a larger sentence.
 <img width="1069" height="610" alt="image" src="https://github.com/user-attachments/assets/6b9b8311-847a-4ae9-b0c1-7a263f576c8f" />
 
 
-# Step 6 – Calculating the Correct Address
+# Step 7 – Calculating the Correct Address
 
 The string begins at:
 
@@ -194,7 +208,7 @@ Good luck!! (and good job!)
 
 Since `strncmp` only checks the beginning of the string, this address satisfies the validation logic.
 
-# Step 7 – Converting the Address
+# Step 8 – Converting the Address
 
 The program expects input through:
 
