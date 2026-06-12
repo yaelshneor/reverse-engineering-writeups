@@ -16,7 +16,7 @@ The program begins by printing an initial prompt and preparing the input flow be
 
 ```asm
 push    offset aWaitCanYouHelp ; "..Wait! Can you help me first with some"...
-call    printf
+call    sub_401DC0
 add     esp, 4
 ```
 
