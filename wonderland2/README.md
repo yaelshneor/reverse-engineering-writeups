@@ -71,6 +71,7 @@ Since `strlen` returns the length of the input string and the result is saved he
 ## Step 4 – Stack Setup, Buffer Initialization and Reading User Input
 
 The function sets up a large local buffer, clears it before reading any input, and then reads a line from the user and calculates its length:
+After zeroing out the buffer with `memset` — which can be used for both input and output buffers, and here we can tell it is input because `0` is pushed onto the stack — the program calls `fgets` to read the user's input into it.
 
 ```asm
 push    ecx             ; void *
@@ -85,7 +86,6 @@ lea     edx, [ebp+Buffer]
 push    edx             ; Buffer
 call    ds:fgets
 ```
-After zeroing out the buffer with memset — which can be used for both input and output buffers, and here we can tell it's input because 0 is pushed onto the stack — the program calls fgets to read the user's input into it.
 
 <img width="331" height="496" alt="image" src="https://github.com/user-attachments/assets/fba47615-6340-47ca-b1d9-20a62bd120a0" />
 
@@ -94,6 +94,8 @@ After zeroing out the buffer with memset — which can be used for both input an
 ## Step 5 – Discovering the Core Transformation (XOR per DWORD)
 
 Inside the loop, each 4-byte block of the buffer is XORed with a fixed constant:
+On each iteration, the program takes 4 bytes from the input buffer and XORs them with the value `0x41524241`.
+values are stored in **little-endian** format.
 
 ```asm
 mov     eax, [ebp+i]
@@ -101,9 +103,6 @@ mov     ecx, dword ptr [ebp+eax+Buffer]
 xor     ecx, 41524241h
 mov     dword ptr [ebp+eax+Buffer], ecx
 ```
-
-On each iteration, the program takes 4 bytes from the input buffer and XORs them with the value `0x41524241`.
-values are stored in **little-endian** format.
 
 <img width="321" height="153" alt="image" src="https://github.com/user-attachments/assets/7bb94ca2-75ba-49ec-9a37-f8a000b95bf0" />
 
@@ -125,11 +124,9 @@ push    eax             ; MaxCount
 call    strncmp
 ```
 
-So the **transformed** input must be equal to `"into the rabbit hole"`.
-
 <img width="570" height="325" alt="image" src="https://github.com/user-attachments/assets/9a901e33-0f2f-45c6-a44f-931aa449aa8c" />
 
-
+So the **transformed** input must be equal to `"into the rabbit hole"`.
 ---
 
 ## Step 7 – Reversing Strategy
