@@ -18,7 +18,7 @@ In the initial static analysis, I identify function calls and look for familiar 
 .text:00401663 add     esp, 4
 ```
 
-From this I concluded that `sub_401650` is the main entry point of the challenge and renamed it `MazeChallenge`. I also noticed that `sub_401DC0` was being called every time a string was printed to the console — a classic `printf` wrapper — so I renamed it `Printf`. Finally, later in the same function I spotted `sub_401770` being called with a single buffer argument, with its return value immediately tested to decide between `"You are lost!\r\n"` and `"You have found the Queen's palace!\r\n"`. That pattern made it clear this was the validation routine, so I renamed it `ValidatePath`.
+Since sub_401DC0 was called immediately after a string was pushed onto the stack, I identified it as a function responsible for printing text to the console and renamed it to Printf.
 
 <img width="692" height="136" alt="image" src="https://github.com/user-attachments/assets/eaf80c9d-0263-436c-9345-3725cc5b27cb" />
 
