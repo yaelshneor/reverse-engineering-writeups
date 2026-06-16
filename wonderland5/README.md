@@ -4,152 +4,108 @@
 
 ## Objective
 
-The goal of this level is to bypass the validation routine **without patching the binary**. Unlike a simple string or numeric comparison, this level's check is not a static comparison at all — it is a small **interpreter** that walks a hard-coded maze step by step according to the characters supplied by the user. The input is accepted only if every step lands on a valid floor tile and the final step lands exactly on the target tile.
+The objective of this level was to bypass the validation mechanism **without patching the binary**. Unlike previous levels where the check was a straightforward string or numeric comparison, this time the validation routine turned out to be a small **maze interpreter** — it walks a hard-coded grid step by step according to the characters supplied by the user, and only accepts the input if every step lands on a valid floor tile and the final position is exactly the target tile.
 
 ---
 
 # Step 1 – Function Identification and Renaming
 
-In the initial static analysis, I located the function that prints the level's flavor text:
+In the initial static analysis, I identify function calls and look for familiar patterns in the code such as input and output operations. When I recognize standard behavior, I rename the functions to make the program flow clearer.
 
 ```asm
-.text:00401659 push offset aYouMayEnterBut ; "You may enter, but can you find the Que"...
-.text:0040165E call Printf
+.text:00401659 push    offset aYouMayEnterBut ; "You may enter, but can you find the Que"...
+.text:0040165E call    sub_401650
+.text:00401663 add     esp, 4
 ```
 
-This is clearly the entry point of the challenge, so I renamed this function `MazeChallenge`.
-
-A second function, `sub_401770`, is called later with a single buffer argument, and its return value (`0` or `1`) decides between `"You are lost!\r\n"` and `"You have found the Queen's palace!\r\n"`. I renamed it `ValidatePath`.
+From this I concluded that `sub_401650` is the main entry point of the challenge and renamed it `MazeChallenge`. I also noticed that `sub_401DC0` was being called every time a string was printed to the console — a classic `printf` wrapper — so I renamed it `Printf`. Finally, later in the same function I spotted `sub_401770` being called with a single buffer argument, with its return value immediately tested to decide between `"You are lost!\r\n"` and `"You have found the Queen's palace!\r\n"`. That pattern made it clear this was the validation routine, so I renamed it `ValidatePath`.
 
 ---
 
-# Step 2 – Understanding the Input Flow
+# Step 2 – Understanding the Input Expectation and File Opening
 
-The first surprise of this level is that the input pipeline goes through the **filesystem**, not directly through `stdin`:
+I then examined how the program actually receives input from the user. The following code runs first:
 
 ```asm
 lea  ecx, [ebp+Buffer]
-push ecx          ; Buffer
-push 3FFh         ; MaxCount
-push eax          ; Stream (stdin)
+push ecx
+push 3FFh
+push eax            ; stdin
 call fgets
-...
-call CreateFileA  ; lpFileName = Buffer
-...
-call ReadFile     ; reads up to 0x400 bytes into var_808
-...
-push var_808
-call sub_401770   ; ValidatePath(var_808)
 ```
 
-Putting this together:
-
-```c
-fgets(filename, 0x3FF, stdin);
-filename[strlen(filename) - 1] = '\0';   // strip newline
-
-hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
-                     NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-ReadFile(hFile, fileContent, 0x400, &bytesRead, NULL);
-
-result = ValidatePath(fileContent);
-```
-
-In other words:
-
-- The text typed at the prompt is **a file name**, not the answer itself.
-- The program opens that file and reads up to **1024 bytes** of its content.
-- The **file's content** is what gets passed to `ValidatePath`.
-
-So the real "key" has to be written into a file first, and the program is simply told where to find it.
-
----
-
-# Step 3 – Reverse Engineering `ValidatePath`
+This is a straightforward `fgets` call reading up to 1023 characters from stdin. My first instinct was that this was reading the answer directly — but looking at what happens next changed that assumption immediately:
 
 ```asm
-push 4Fh                  ; 'O'
-mov  eax, Str
-push eax
-call strchr                ; pos = strchr(Str, 'O')
-...
-mov  var_C, 0               ; i = 0
-
-loc_401790:
-movsx edx, [arg_0 + var_C]   ; c = moves[i]
-sub   edx, 31h               ; c - '1'
-cmp   edx, 3
-ja    default                ; if (unsigned)(c-'1') > 3 -> return 0
-
-; switch (c - '1')
-case 0 ('1'): pos += 1     ; jumptable case 49 -> right
-case 1 ('2'): pos += 0x10  ; jumptable case 50 -> down
-case 2 ('3'): pos -= 1     ; jumptable case 51 -> left
-case 3 ('4'): pos -= 0x10  ; jumptable case 52 -> up
-
-i++
-if (moves[i] == 0) break     ; end of input
-if (*pos != '.') break        ; hit a wall / non-floor tile
-
-; otherwise loop again
-...
-return (*pos == 'X');
+call    CreateFileA     ; lpFileName = Buffer
+mov     [ebp+hFile], eax
+cmp     [ebp+hFile], 0FFFFFFFFh
+jnz     short loc_4016E2
+push    offset aWrong_0 ; "Wrong!\r\n"
 ```
 
-Two details give away the exact structure of the maze:
-
-- The stride `0x10` (16) used for "up"/"down" means **the maze is 16 columns wide**.
-- The loop keeps going only while `*pos == '.'`, and success requires the **final** position to be `'X'` — so walls are simply anything that isn't `'.'` or `'X'`.
+The buffer is not being compared — it is being passed as a **file name** to `CreateFileA`. If the file does not exist on disk, the program prints `"Wrong!\r\n"` and loops back. This was the first key insight: the user is not expected to type the answer, but rather the **name of a file** that contains it.
 
 ---
 
-# Step 4 – Reconstructing in C
+# Step 3 – Reading the File Contents and Passing Them to the Validator
 
-```c
-int ValidatePath(char *moves)
-{
-    char *pos = strchr(Str, 'O');
-    int i = 0;
-
-    for (;;)
-    {
-        int dir = moves[i] - '1';
-        if ((unsigned)dir > 3)
-            return 0;                  // not '1'..'4' -> invalid
-
-        switch (dir)
-        {
-            case 0: pos += 1;    break; // '1' -> right
-            case 1: pos += 0x10; break; // '2' -> down
-            case 2: pos -= 1;    break; // '3' -> left
-            case 3: pos -= 0x10; break; // '4' -> up
-        }
-
-        i++;
-        if (moves[i] == '\0')
-            break;
-        if (*pos != '.')
-            break;
-    }
-
-    return (*pos == 'X');
-}
-```
-
----
-
-# Step 5 – Extracting the Maze From `.data`
-
-`Str` points to `aO`, a 97-byte buffer (96 bytes of map data + a null terminator):
+Once the file is opened successfully, the program reads its contents:
 
 ```asm
-.data:00404020 aO db '###################O####...########.##...#.########.##.###.######'
-.data:00404061    db '##....###...X##################',0
+push    400h            ; nNumberOfBytesToRead
+lea     edx, [ebp+var_808]
+push    edx             ; lpBuffer
+mov     eax, [ebp+hFile]
+push    eax
+call    ReadFile
 ```
 
-`96 ÷ 16 = 6` — exactly **6 rows of 16 columns**, matching the `0x10` row-stride found in Step 3.
+After reading, the handle is closed and the buffer is passed directly to `ValidatePath`:
 
-Splitting the 96 raw bytes into 16-character rows reconstructs the full map:
+```asm
+call    ds:CloseHandle
+lea     eax, [ebp+var_808]
+push    eax
+call    sub_401770      ; ValidatePath(fileContent)
+```
+
+This confirmed the picture: it is the **contents of the file** — not its name — that get validated. The real key needs to be written inside the file, and the program is simply told where to find it.
+
+---
+
+# Step 4 – Recognizing the Maze Logic
+
+Diving into `ValidatePath`, the very first thing the function does is search for the character `'O'` inside a global string (`Str`) and saves its address as the starting position:
+
+```asm
+push    4Fh         ; 'O'
+mov     eax, Str
+push    eax
+call    strchr      ; pos = address of 'O' in the map
+```
+
+That immediately suggested a maze: there is a defined starting point. Scrolling to the end of the function confirmed the win condition:
+
+```asm
+cmp     eax, 58h    ; 'X'
+```
+
+The function returns success only if the final position holds `'X'`. Between start and end, each character in the input is processed through a **switch with 4 cases** — digits `'1'` through `'4'` — where each case moves the current position pointer in a different direction within the map. Cells containing `'.'` are valid floor tiles; anything else is treated as a wall and breaks the loop.
+
+---
+
+# Step 5 – Extracting the Maze from `.data`
+
+With the logic understood, I turned to the `.data` section to recover the actual map. `Str` is a pointer to `aO`, a 96-byte buffer (plus a null terminator) defined in the binary:
+
+```asm
+.data:00404010 Str             dd offset aO            ; "###################O####...########.##."...
+.data:00404020 aO              db '###################O####...########.##...#.########.##.###.######'
+.data:00404061                 db '##....###...X##################',0
+```
+
+The stride used for vertical movement inside `ValidatePath` is `0x10` (16), which means the map is **16 columns wide**. Dividing 96 bytes by 16 gives exactly 6 rows. Splitting the raw string into 16-character rows reconstructs the full grid:
 
 ```
 ################
@@ -160,16 +116,16 @@ Splitting the 96 raw bytes into 16-character rows reconstructs the full map:
 ################
 ```
 
-- `O` → row 1, column 3 (entrance)
-- `X` → row 4, column 13 (Queen's palace)
+- `O` → row 1, column 3 — entrance
+- `X` → row 4, column 13 — Queen's palace
 - `#` → wall
-- `.` → walkable tile
+- `.` → walkable floor tile
 
 ---
 
 # Step 6 – Solving the Maze
 
-Starting at `O` and stepping only on `.` tiles (with the final step landing on `X`), there is exactly **one** path through the maze:
+Starting at `O` and stepping only onto `'.'` tiles, with the final step landing on `'X'`, I traced the single valid path through the grid:
 
 ```
 ################
@@ -180,31 +136,31 @@ Starting at `O` and stepping only on `.` tiles (with the final step landing on `
 ################
 ```
 
-Reading the arrows in order and converting each direction back to its digit (`right=1`, `down=2`, `left=3`, `up=4`):
+Converting each direction to its corresponding digit (`right=1`, `down=2`, `left=3`, `up=4`):
 
-| Step | From      | To        | Direction | Digit |
-|------|-----------|-----------|-----------|-------|
-| 1    | (1,3) O   | (2,3)     | down      | 2     |
-| 2    | (2,3)     | (3,3)     | down      | 2     |
-| 3    | (3,3)     | (4,3)     | down      | 2     |
-| 4    | (4,3)     | (4,4)     | right     | 1     |
-| 5    | (4,4)     | (4,5)     | right     | 1     |
-| 6    | (4,5)     | (4,6)     | right     | 1     |
-| 7    | (4,6)     | (3,6)     | up        | 4     |
-| 8    | (3,6)     | (2,6)     | up        | 4     |
-| 9    | (2,6)     | (2,7)     | right     | 1     |
-| 10   | (2,7)     | (2,8)     | right     | 1     |
-| 11   | (2,8)     | (1,8)     | up        | 4     |
-| 12   | (1,8)     | (1,9)     | right     | 1     |
-| 13   | (1,9)     | (1,10)    | right     | 1     |
-| 14   | (1,10)    | (2,10)    | down      | 2     |
-| 15   | (2,10)    | (3,10)    | down      | 2     |
-| 16   | (3,10)    | (4,10)    | down      | 2     |
-| 17   | (4,10)    | (4,11)    | right     | 1     |
-| 18   | (4,11)    | (4,12)    | right     | 1     |
-| 19   | (4,12)    | (4,13) X  | right     | 1     |
+| Step | From       | To         | Direction | Digit |
+|------|------------|------------|-----------|-------|
+| 1    | (1,3) O    | (2,3)      | down      | 2     |
+| 2    | (2,3)      | (3,3)      | down      | 2     |
+| 3    | (3,3)      | (4,3)      | down      | 2     |
+| 4    | (4,3)      | (4,4)      | right     | 1     |
+| 5    | (4,4)      | (4,5)      | right     | 1     |
+| 6    | (4,5)      | (4,6)      | right     | 1     |
+| 7    | (4,6)      | (3,6)      | up        | 4     |
+| 8    | (3,6)      | (2,6)      | up        | 4     |
+| 9    | (2,6)      | (2,7)      | right     | 1     |
+| 10   | (2,7)      | (2,8)      | right     | 1     |
+| 11   | (2,8)      | (1,8)      | up        | 4     |
+| 12   | (1,8)      | (1,9)      | right     | 1     |
+| 13   | (1,9)      | (1,10)     | right     | 1     |
+| 14   | (1,10)     | (2,10)     | down      | 2     |
+| 15   | (2,10)     | (3,10)     | down      | 2     |
+| 16   | (3,10)     | (4,10)     | down      | 2     |
+| 17   | (4,10)     | (4,11)     | right     | 1     |
+| 18   | (4,11)     | (4,12)     | right     | 1     |
+| 19   | (4,12)     | (4,13) X   | right     | 1     |
 
-Concatenating the digits gives the **19-character move sequence**:
+Concatenating the digits produces the **19-character move sequence**:
 
 ```
 2221114411411222111
@@ -214,9 +170,9 @@ Concatenating the digits gives the **19-character move sequence**:
 
 # Step 7 – Delivering the Solution
 
-Since the program reads the answer from a **file**, not directly from `stdin`:
+Since the program reads the answer from a **file** rather than directly from stdin, the final step was straightforward:
 
-1. Create a text file (e.g. `path.txt`) containing exactly:
+1. Create a text file — I named it `path.txt` — containing exactly:
    ```
    2221114411411222111
    ```
@@ -226,13 +182,13 @@ Since the program reads the answer from a **file**, not directly from `stdin`:
    path.txt
    ```
 
-`ValidatePath` walks the maze using these 19 moves, lands exactly on `X`, and the program prints `"You have found the Queen's palace!\r\n"`.
+`ValidatePath` walks the maze using these 19 moves, lands exactly on `'X'`, and the program prints `"You have found the Queen's palace!\r\n"`.
 
 ---
 
 # Final Solution
 
-The validation routine does not compare against a fixed string — it **interprets the input as a sequence of maze moves** (`1`=right, `2`=down, `3`=left, `4`=up) and walks a hard-coded 16×6 grid from `O` to `X`.
+The validation routine does not compare against a fixed string — it **interprets the file content as a sequence of maze moves** (`1`=right, `2`=down, `3`=left, `4`=up) and walks a hard-coded 16×6 grid from `O` to `X`.
 
 **File content (`path.txt`):**
 ```
@@ -244,4 +200,4 @@ The validation routine does not compare against a fixed string — it **interpre
 path.txt
 ```
 
-The path is valid, the final tile is `X`, and the check succeeds without modifying a single byte of the executable.
+The path is valid, the final tile is `X`, and the check passes without modifying a single byte of the executable.
